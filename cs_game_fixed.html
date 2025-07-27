@@ -1,0 +1,1300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Counter-Strike Web Game</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #canvas {
+            display: block;
+        }
+        
+        #ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 100;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 20px;
+            height: 20px;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+        
+        #crosshair::before,
+        #crosshair::after {
+            content: '';
+            position: absolute;
+            background: #fff;
+            box-shadow: 0 0 2px #000;
+        }
+        
+        #crosshair::before {
+            top: 50%;
+            left: 45%;
+            width: 10%;
+            height: 2px;
+            transform: translateY(-50%);
+        }
+        
+        #crosshair::after {
+            top: 45%;
+            left: 50%;
+            width: 2px;
+            height: 10%;
+            transform: translateX(-50%);
+        }
+        
+        #hud {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: #fff;
+            font-size: 18px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #health {
+            color: #ff4444;
+            margin-bottom: 5px;
+        }
+        
+        #armor {
+            color: #4444ff;
+            margin-bottom: 5px;
+        }
+        
+        #ammo {
+            color: #ffff44;
+            margin-bottom: 5px;
+        }
+        
+        #money {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #44ff44;
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+        }
+        
+        #menu {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: #fff;
+            pointer-events: all;
+        }
+        
+        #menu h1 {
+            font-size: 48px;
+            margin-bottom: 40px;
+            color: #ff6600;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+        }
+        
+        .menu-button {
+            padding: 15px 30px;
+            margin: 10px;
+            background: #333;
+            border: 2px solid #666;
+            color: #fff;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+            outline: none;
+        }
+        
+        .menu-button:hover {
+            background: #555;
+            border-color: #999;
+        }
+        
+        #shop {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            padding: 30px;
+            border: 2px solid #666;
+            color: #fff;
+            display: none;
+            pointer-events: all;
+            max-width: 600px;
+            border-radius: 10px;
+        }
+        
+        .shop-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: #333;
+            border: 1px solid #555;
+            cursor: pointer;
+            transition: background 0.3s;
+            border-radius: 5px;
+        }
+        
+        .shop-item:hover {
+            background: #444;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 24px;
+            text-align: center;
+        }
+        
+        #loading-bar {
+            width: 300px;
+            height: 20px;
+            background: #333;
+            border: 2px solid #666;
+            margin-top: 20px;
+            overflow: hidden;
+            border-radius: 10px;
+        }
+        
+        #loading-progress {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6600, #ffaa00);
+            width: 0%;
+            transition: width 0.3s;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        #flashbang {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #fff;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.1s;
+        }
+        
+        #damage-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 30%, rgba(255,0,0,0.3) 100%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: #fff;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            max-width: 200px;
+        }
+
+        #gameStatus {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+            text-align: center;
+            pointer-events: none;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="canvas"></canvas>
+        
+        <div id="loading">
+            <div>正在初始化3D场景...</div>
+            <div id="loading-bar">
+                <div id="loading-progress"></div>
+            </div>
+        </div>
+        
+        <div id="menu">
+            <h1>Counter-Strike 3D</h1>
+            <button class="menu-button" onclick="startGame('bomb')">炸弹模式</button>
+            <button class="menu-button" onclick="startGame('deathmatch')">团队死斗</button>
+            <button class="menu-button" onclick="showInstructions()">操作说明</button>
+        </div>
+        
+        <div id="ui" class="hidden">
+            <div id="crosshair"></div>
+            <div id="money">$800</div>
+            <div id="hud">
+                <div id="health">血量: 100</div>
+                <div id="armor">护甲: 0</div>
+                <div id="ammo">弹药: 17/68</div>
+            </div>
+            <div id="instructions">
+                <div>WASD - 移动</div>
+                <div>鼠标 - 视角</div>
+                <div>左键 - 射击</div>
+                <div>R - 换弹</div>
+                <div>B - 商店</div>
+                <div>ESC - 菜单</div>
+            </div>
+            <div id="flashbang"></div>
+            <div id="damage-overlay"></div>
+        </div>
+        
+        <div id="shop" class="hidden">
+            <h3>购买装备 - 按ESC关闭</h3>
+            <div class="shop-item" onclick="buyItem('m4a1', 3100)">
+                <span>M4A1 突击步枪</span>
+                <span>$3100</span>
+            </div>
+            <div class="shop-item" onclick="buyItem('awp', 4750)">
+                <span>AWP 狙击步枪</span>
+                <span>$4750</span>
+            </div>
+            <div class="shop-item" onclick="buyItem('deagle', 700)">
+                <span>沙漠之鹰</span>
+                <span>$700</span>
+            </div>
+            <div class="shop-item" onclick="buyItem('armor', 1000)">
+                <span>防弹衣</span>
+                <span>$1000</span>
+            </div>
+            <div class="shop-item" onclick="buyItem('hegrenade', 300)">
+                <span>高爆手雷</span>
+                <span>$300</span>
+            </div>
+            <div class="shop-item" onclick="buyItem('flashbang', 200)">
+                <span>闪光弹</span>
+                <span>$200</span>
+            </div>
+            <div class="shop-item" onclick="buyItem('smoke', 300)">
+                <span>烟雾弹</span>
+                <span>$300</span>
+            </div>
+        </div>
+
+        <div id="gameStatus" class="hidden"></div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // 游戏核心类
+        class CSGame {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.player = null;
+                this.enemies = [];
+                this.gameMode = 'bomb';
+                this.gameState = 'menu';
+                this.loadingProgress = 0;
+                this.keys = {};
+                this.mouse = { x: 0, y: 0 };
+                this.isPointerLocked = false;
+                this.clock = new THREE.Clock();
+                this.raycaster = new THREE.Raycaster();
+                this.obstacles = [];
+                this.lastShot = 0;
+                this.isReloading = false;
+                
+                // 游戏数据
+                this.playerStats = {
+                    health: 100,
+                    maxHealth: 100,
+                    armor: 0,
+                    money: 800,
+                    weapons: {
+                        primary: null,
+                        secondary: { name: 'glock', ammo: 17, reserve: 68, maxAmmo: 17 }
+                    },
+                    currentWeapon: 'secondary',
+                    grenades: { he: 0, flash: 0, smoke: 0 }
+                };
+                
+                // 武器数据
+                this.weaponData = {
+                    glock: { damage: 28, firerate: 400, recoil: 0.5, range: 50, maxAmmo: 17 },
+                    deagle: { damage: 63, firerate: 267, recoil: 2.0, range: 80, maxAmmo: 7 },
+                    m4a1: { damage: 33, firerate: 666, recoil: 1.2, range: 100, maxAmmo: 30 },
+                    ak47: { damage: 36, firerate: 600, recoil: 1.8, range: 100, maxAmmo: 30 },
+                    awp: { damage: 115, firerate: 41, recoil: 0.8, range: 200, maxAmmo: 10 }
+                };
+                
+                this.init();
+            }
+            
+            async init() {
+                try {
+                    this.setupEventListeners();
+                    await this.loadGame();
+                } catch (error) {
+                    console.error('游戏初始化失败:', error);
+                    alert('游戏初始化失败，请刷新页面重试');
+                }
+            }
+            
+            setupEventListeners() {
+                // 键盘事件
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.code] = true;
+                    this.handleKeyDown(e);
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.code] = false;
+                    e.preventDefault();
+                });
+                
+                // 鼠标事件
+                document.addEventListener('mousemove', (e) => {
+                    if (this.isPointerLocked && this.gameState === 'playing') {
+                        this.mouse.x = e.movementX || 0;
+                        this.mouse.y = e.movementY || 0;
+                        this.updateCameraRotation();
+                    }
+                });
+                
+                document.addEventListener('mousedown', (e) => {
+                    if (this.gameState === 'playing') {
+                        e.preventDefault();
+                        if (e.button === 0) this.shoot();
+                        if (e.button === 2) this.zoom();
+                    }
+                });
+                
+                document.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('wheel', (e) => {
+                    if (this.gameState === 'playing') {
+                        e.preventDefault();
+                        this.switchWeapon(e.deltaY > 0 ? 1 : -1);
+                    }
+                });
+                
+                // 指针锁定事件
+                document.addEventListener('pointerlockchange', () => {
+                    this.isPointerLocked = document.pointerLockElement === document.body;
+                });
+                
+                document.addEventListener('pointerlockerror', () => {
+                    console.error('指针锁定失败');
+                });
+
+                // 窗口失焦时暂停
+                document.addEventListener('visibilitychange', () => {
+                    if (document.hidden && this.gameState === 'playing') {
+                        this.pauseGame();
+                    }
+                });
+            }
+            
+            async loadGame() {
+                // 模拟加载过程
+                const loadingSteps = [
+                    '初始化Three.js...',
+                    '创建3D场景...',
+                    '加载纹理资源...',
+                    '生成地图...',
+                    '创建AI敌人...',
+                    '准备游戏...'
+                ];
+                
+                for (let i = 0; i < loadingSteps.length; i++) {
+                    document.querySelector('#loading div').textContent = loadingSteps[i];
+                    const progress = ((i + 1) / loadingSteps.length) * 100;
+                    document.getElementById('loading-progress').style.width = progress + '%';
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                }
+                
+                this.initThreeJS();
+                this.createScene();
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('menu').classList.remove('hidden');
+            }
+            
+            initThreeJS() {
+                // 创建场景
+                this.scene = new THREE.Scene();
+                this.scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
+                
+                // 创建相机
+                this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+                this.camera.position.set(0, 1.6, 0);
+                
+                // 创建渲染器
+                this.renderer = new THREE.WebGLRenderer({ 
+                    canvas: document.getElementById('canvas'),
+                    antialias: true 
+                });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.shadowMap.enabled = true;
+                this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+                this.renderer.setClearColor(0x87CEEB);
+                
+                // 窗口大小调整
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+            
+            createScene() {
+                // 创建光照
+                const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+                this.scene.add(ambientLight);
+                
+                const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+                directionalLight.position.set(50, 100, 50);
+                directionalLight.castShadow = true;
+                directionalLight.shadow.mapSize.width = 2048;
+                directionalLight.shadow.mapSize.height = 2048;
+                directionalLight.shadow.camera.near = 0.5;
+                directionalLight.shadow.camera.far = 500;
+                directionalLight.shadow.camera.left = -100;
+                directionalLight.shadow.camera.right = 100;
+                directionalLight.shadow.camera.top = 100;
+                directionalLight.shadow.camera.bottom = -100;
+                this.scene.add(directionalLight);
+                
+                // 创建地面
+                const groundGeometry = new THREE.PlaneGeometry(200, 200);
+                const groundMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0xD2B48C
+                });
+                const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+                ground.rotation.x = -Math.PI / 2;
+                ground.receiveShadow = true;
+                this.scene.add(ground);
+                this.obstacles.push(ground);
+                
+                // 创建建筑物和掩体
+                this.createBuildings();
+                this.createCover();
+                
+                // 创建玩家
+                this.createPlayer();
+                
+                // 创建AI敌人
+                this.createEnemies();
+            }
+            
+            createBuildings() {
+                const buildingMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                
+                // 建筑物1
+                const building1 = new THREE.Mesh(
+                    new THREE.BoxGeometry(20, 15, 10),
+                    buildingMaterial
+                );
+                building1.position.set(-30, 7.5, -20);
+                building1.castShadow = true;
+                building1.receiveShadow = true;
+                this.scene.add(building1);
+                this.obstacles.push(building1);
+                
+                // 建筑物2
+                const building2 = new THREE.Mesh(
+                    new THREE.BoxGeometry(15, 12, 15),
+                    buildingMaterial
+                );
+                building2.position.set(40, 6, 30);
+                building2.castShadow = true;
+                building2.receiveShadow = true;
+                this.scene.add(building2);
+                this.obstacles.push(building2);
+                
+                // 围墙
+                for (let i = 0; i < 10; i++) {
+                    const wall = new THREE.Mesh(
+                        new THREE.BoxGeometry(2, 8, 10),
+                        buildingMaterial
+                    );
+                    wall.position.set(-50 + i * 12, 4, -50);
+                    wall.castShadow = true;
+                    wall.receiveShadow = true;
+                    this.scene.add(wall);
+                    this.obstacles.push(wall);
+                }
+            }
+            
+            createCover() {
+                const boxMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+                
+                for (let i = 0; i < 15; i++) {
+                    const box = new THREE.Mesh(
+                        new THREE.BoxGeometry(2, 2, 2),
+                        boxMaterial
+                    );
+                    box.position.set(
+                        (Math.random() - 0.5) * 80,
+                        1,
+                        (Math.random() - 0.5) * 80
+                    );
+                    box.castShadow = true;
+                    box.receiveShadow = true;
+                    this.scene.add(box);
+                    this.obstacles.push(box);
+                }
+            }
+            
+            createPlayer() {
+                this.player = {
+                    position: new THREE.Vector3(0, 1.6, 0),
+                    rotation: new THREE.Euler(0, 0, 0),
+                    velocity: new THREE.Vector3(0, 0, 0),
+                    onGround: true,
+                    crouching: false,
+                    walking: false,
+                    height: 1.6,
+                    radius: 0.5
+                };
+            }
+            
+            createEnemies() {
+                // 清除现有敌人
+                this.enemies.forEach(enemy => {
+                    if (enemy.mesh) {
+                        this.scene.remove(enemy.mesh);
+                    }
+                });
+                this.enemies = [];
+                
+                const enemyCount = this.gameMode === 'bomb' ? 5 : 8;
+                
+                for (let i = 0; i < enemyCount; i++) {
+                    const enemy = this.createEnemy();
+                    this.enemies.push(enemy);
+                    this.scene.add(enemy.mesh);
+                }
+            }
+            
+            createEnemy() {
+                // 创建敌人模型（简单的胶囊体）
+                const geometry = new THREE.CapsuleGeometry(0.5, 1.5, 4, 8);
+                const material = new THREE.MeshLambertMaterial({ color: 0xff4444 });
+                const mesh = new THREE.Mesh(geometry, material);
+                mesh.castShadow = true;
+                
+                // 随机位置（确保不与障碍物重叠）
+                let position;
+                let attempts = 0;
+                do {
+                    const angle = Math.random() * Math.PI * 2;
+                    const distance = 20 + Math.random() * 30;
+                    position = new THREE.Vector3(
+                        Math.cos(angle) * distance,
+                        1,
+                        Math.sin(angle) * distance
+                    );
+                    attempts++;
+                } while (this.isPositionBlocked(position) && attempts < 10);
+                
+                mesh.position.copy(position);
+                
+                return {
+                    mesh: mesh,
+                    health: 100,
+                    maxHealth: 100,
+                    state: 'patrol',
+                    target: null,
+                    lastSeen: null,
+                    patrolPoints: this.generatePatrolPoints(),
+                    currentPatrolIndex: 0,
+                    weapon: 'ak47',
+                    lastShot: 0,
+                    moveDirection: new THREE.Vector3(),
+                    speed: 2,
+                    alertRadius: 30,
+                    shootRadius: 25,
+                    accuracy: 0.3
+                };
+            }
+            
+            isPositionBlocked(position) {
+                // 简单的位置检测
+                for (let obstacle of this.obstacles) {
+                    const distance = position.distanceTo(obstacle.position);
+                    if (distance < 3) return true;
+                }
+                return false;
+            }
+            
+            generatePatrolPoints() {
+                const points = [];
+                for (let i = 0; i < 3; i++) {
+                    points.push(new THREE.Vector3(
+                        (Math.random() - 0.5) * 60,
+                        0,
+                        (Math.random() - 0.5) * 60
+                    ));
+                }
+                return points;
+            }
+            
+            handleKeyDown(e) {
+                switch (e.code) {
+                    case 'KeyR':
+                        if (this.gameState === 'playing') this.reload();
+                        break;
+                    case 'Digit1':
+                        if (this.gameState === 'playing') this.selectWeapon('primary');
+                        break;
+                    case 'Digit2':
+                        if (this.gameState === 'playing') this.selectWeapon('secondary');
+                        break;
+                    case 'KeyB':
+                        if (this.gameState === 'playing') this.showShop();
+                        break;
+                    case 'Escape':
+                        if (this.gameState === 'playing') {
+                            this.pauseGame();
+                        } else if (this.gameState === 'shop') {
+                            this.closeShop();
+                        }
+                        break;
+                    case 'Enter':
+                        if (this.gameState === 'menu') {
+                            this.startGame('bomb');
+                        }
+                        break;
+                }
+            }
+            
+            updateCameraRotation() {
+                if (!this.player) return;
+                
+                const sensitivity = 0.002;
+                this.player.rotation.y -= this.mouse.x * sensitivity;
+                this.player.rotation.x -= this.mouse.y * sensitivity;
+                
+                // 限制垂直旋转
+                this.player.rotation.x = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, this.player.rotation.x));
+                
+                // 应用到相机
+                this.camera.rotation.x = this.player.rotation.x;
+                this.camera.rotation.y = this.player.rotation.y;
+                
+                this.mouse.x = 0;
+                this.mouse.y = 0;
+            }
+            
+            update(deltaTime) {
+                if (this.gameState !== 'playing') return;
+                
+                this.updatePlayer(deltaTime);
+                this.updateEnemies(deltaTime);
+                this.updateUI();
+                this.checkGameEnd();
+            }
+            
+            updatePlayer(deltaTime) {
+                const moveSpeed = this.keys['ShiftLeft'] ? 2 : 4;
+                const direction = new THREE.Vector3();
+                
+                if (this.keys['KeyW']) direction.z -= 1;
+                if (this.keys['KeyS']) direction.z += 1;
+                if (this.keys['KeyA']) direction.x -= 1;
+                if (this.keys['KeyD']) direction.x += 1;
+                
+                if (direction.length() > 0) {
+                    direction.normalize();
+                    direction.applyEuler(new THREE.Euler(0, this.player.rotation.y, 0));
+                    
+                    const newPosition = this.player.position.clone().add(
+                        direction.multiplyScalar(moveSpeed * deltaTime)
+                    );
+                    
+                    // 简单的碰撞检测
+                    if (!this.checkCollision(newPosition)) {
+                        this.player.position.copy(newPosition);
+                    }
+                }
+                
+                // 蹲下
+                if (this.keys['ControlLeft']) {
+                    this.player.crouching = true;
+                    this.player.height = 1.1;
+                } else {
+                    this.player.crouching = false;
+                    this.player.height = 1.6;
+                }
+                
+                // 更新相机位置
+                this.camera.position.x = this.player.position.x;
+                this.camera.position.y = this.player.position.y;
+                this.camera.position.z = this.player.position.z;
+            }
+            
+            checkCollision(position) {
+                // 简单的碰撞检测
+                for (let obstacle of this.obstacles) {
+                    const distance = position.distanceTo(obstacle.position);
+                    if (distance < this.player.radius + 1) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            
+            updateEnemies(deltaTime) {
+                this.enemies.forEach(enemy => {
+                    if (enemy.health <= 0) return;
+                    
+                    const distanceToPlayer = enemy.mesh.position.distanceTo(this.player.position);
+                    
+                    // AI状态机
+                    switch (enemy.state) {
+                        case 'patrol':
+                            if (distanceToPlayer < enemy.alertRadius && this.canSeePlayer(enemy)) {
+                                enemy.state = 'combat';
+                                enemy.target = this.player.position.clone();
+                            } else {
+                                this.patrolEnemy(enemy, deltaTime);
+                            }
+                            break;
+                            
+                        case 'combat':
+                            if (distanceToPlayer > enemy.alertRadius * 1.5) {
+                                enemy.state = 'patrol';
+                            } else {
+                                if (distanceToPlayer < enemy.shootRadius && this.canSeePlayer(enemy)) {
+                                    this.enemyShoot(enemy);
+                                }
+                                this.moveEnemyToCover(enemy, deltaTime);
+                            }
+                            break;
+                    }
+                });
+            }
+            
+            canSeePlayer(enemy) {
+                const direction = new THREE.Vector3().subVectors(this.player.position, enemy.mesh.position);
+                const distance = direction.length();
+                direction.normalize();
+                
+                this.raycaster.set(enemy.mesh.position, direction);
+                const intersects = this.raycaster.intersectObjects(this.obstacles);
+                
+                return intersects.length === 0 || intersects[0].distance > distance;
+            }
+            
+            enemyShoot(enemy) {
+                const now = Date.now();
+                if (now - enemy.lastShot < 1000) return;
+                
+                enemy.lastShot = now;
+                
+                if (Math.random() < enemy.accuracy) {
+                    this.takeDamage(this.weaponData[enemy.weapon].damage);
+                }
+                
+                this.createMuzzleFlash(enemy.mesh.position);
+                this.playSound('gunshot');
+            }
+            
+            moveEnemyToCover(enemy, deltaTime) {
+                const moveSpeed = enemy.speed;
+                const playerDirection = new THREE.Vector3().subVectors(this.player.position, enemy.mesh.position);
+                playerDirection.normalize();
+                
+                // 简单的躲避逻辑
+                const avoidDirection = new THREE.Vector3(-playerDirection.z, 0, playerDirection.x);
+                if (Math.random() < 0.5) avoidDirection.multiplyScalar(-1);
+                
+                const newPosition = enemy.mesh.position.clone().add(
+                    avoidDirection.multiplyScalar(moveSpeed * deltaTime)
+                );
+                
+                if (!this.isPositionBlocked(newPosition)) {
+                    enemy.mesh.position.copy(newPosition);
+                }
+            }
+            
+            patrolEnemy(enemy, deltaTime) {
+                const moveSpeed = enemy.speed * 0.5;
+                const currentTarget = enemy.patrolPoints[enemy.currentPatrolIndex];
+                const direction = new THREE.Vector3().subVectors(currentTarget, enemy.mesh.position);
+                
+                if (direction.length() < 2) {
+                    enemy.currentPatrolIndex = (enemy.currentPatrolIndex + 1) % enemy.patrolPoints.length;
+                } else {
+                    direction.normalize();
+                    const newPosition = enemy.mesh.position.clone().add(
+                        direction.multiplyScalar(moveSpeed * deltaTime)
+                    );
+                    
+                    if (!this.isPositionBlocked(newPosition)) {
+                        enemy.mesh.position.copy(newPosition);
+                    }
+                }
+            }
+            
+            shoot() {
+                const weapon = this.getCurrentWeapon();
+                if (!weapon || weapon.ammo <= 0 || this.isReloading) return;
+                
+                const now = Date.now();
+                const weaponData = this.weaponData[weapon.name];
+                const fireInterval = 60000 / weaponData.firerate;
+                
+                if (now - this.lastShot < fireInterval) return;
+                
+                this.lastShot = now;
+                weapon.ammo--;
+                
+                this.playSound('gunshot');
+                
+                // 射线检测
+                this.raycaster.setFromCamera(new THREE.Vector2(0, 0), this.camera);
+                const intersects = this.raycaster.intersectObjects(this.scene.children, true);
+                
+                if (intersects.length > 0) {
+                    const hit = intersects[0];
+                    
+                    // 检查是否击中敌人
+                    const hitEnemy = this.enemies.find(enemy => enemy.mesh === hit.object);
+                    if (hitEnemy && hitEnemy.health > 0) {
+                        this.damageEnemy(hitEnemy, weaponData.damage);
+                    }
+                    
+                    // 创建弹孔
+                    this.createBulletHole(hit.point, hit.face ? hit.face.normal : new THREE.Vector3(0, 1, 0));
+                }
+                
+                // 创建枪口火焰
+                this.createMuzzleFlash(this.camera.position);
+            }
+            
+            damageEnemy(enemy, damage) {
+                enemy.health -= damage;
+                
+                if (enemy.health <= 0) {
+                    this.scene.remove(enemy.mesh);
+                    this.playerStats.money += 500;
+                    this.createBloodSplatter(enemy.mesh.position);
+                    
+                    // 显示击杀提示
+                    this.showGameStatus('+$500 击杀奖励', 1000);
+                }
+            }
+            
+            takeDamage(damage) {
+                const armorReduction = Math.min(this.playerStats.armor, damage * 0.5);
+                const actualDamage = damage - armorReduction;
+                
+                this.playerStats.health -= actualDamage;
+                this.playerStats.armor -= armorReduction;
+                
+                this.playerStats.health = Math.max(0, this.playerStats.health);
+                this.playerStats.armor = Math.max(0, this.playerStats.armor);
+                
+                this.showDamageEffect();
+                
+                if (this.playerStats.health <= 0) {
+                    this.gameOver();
+                }
+            }
+            
+            showDamageEffect() {
+                const overlay = document.getElementById('damage-overlay');
+                overlay.style.opacity = Math.min(1, (this.playerStats.maxHealth - this.playerStats.health) / this.playerStats.maxHealth);
+                setTimeout(() => {
+                    overlay.style.opacity = '0';
+                }, 500);
+            }
+            
+            createMuzzleFlash(position) {
+                const geometry = new THREE.SphereGeometry(0.2, 8, 8);
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: 0xffff00,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const flash = new THREE.Mesh(geometry, material);
+                flash.position.copy(position);
+                this.scene.add(flash);
+                
+                setTimeout(() => {
+                    this.scene.remove(flash);
+                }, 50);
+            }
+            
+            createBulletHole(position, normal) {
+                const geometry = new THREE.CircleGeometry(0.05, 8);
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: 0x222222,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const hole = new THREE.Mesh(geometry, material);
+                hole.position.copy(position);
+                hole.lookAt(position.clone().add(normal));
+                this.scene.add(hole);
+            }
+            
+            createBloodSplatter(position) {
+                const geometry = new THREE.SphereGeometry(0.3, 8, 8);
+                const material = new THREE.MeshBasicMaterial({ 
+                    color: 0x880000,
+                    transparent: true,
+                    opacity: 0.6
+                });
+                const blood = new THREE.Mesh(geometry, material);
+                blood.position.copy(position);
+                this.scene.add(blood);
+            }
+            
+            getCurrentWeapon() {
+                return this.playerStats.weapons[this.playerStats.currentWeapon];
+            }
+            
+            reload() {
+                const weapon = this.getCurrentWeapon();
+                if (!weapon || weapon.reserve <= 0 || this.isReloading) return;
+                
+                this.isReloading = true;
+                this.playSound('reload');
+                
+                setTimeout(() => {
+                    const weaponData = this.weaponData[weapon.name];
+                    const maxAmmo = weaponData.maxAmmo;
+                    const needed = maxAmmo - weapon.ammo;
+                    const available = Math.min(needed, weapon.reserve);
+                    
+                    weapon.ammo += available;
+                    weapon.reserve -= available;
+                    
+                    this.isReloading = false;
+                }, 1500);
+            }
+            
+            switchWeapon(direction) {
+                const weapons = ['primary', 'secondary'];
+                const currentIndex = weapons.indexOf(this.playerStats.currentWeapon);
+                let newIndex = currentIndex + direction;
+                
+                if (newIndex < 0) newIndex = weapons.length - 1;
+                if (newIndex >= weapons.length) newIndex = 0;
+                
+                if (this.playerStats.weapons[weapons[newIndex]]) {
+                    this.playerStats.currentWeapon = weapons[newIndex];
+                }
+            }
+            
+            selectWeapon(type) {
+                if (this.playerStats.weapons[type]) {
+                    this.playerStats.currentWeapon = type;
+                }
+            }
+            
+            updateUI() {
+                document.getElementById('health').textContent = `血量: ${Math.ceil(this.playerStats.health)}`;
+                document.getElementById('armor').textContent = `护甲: ${Math.ceil(this.playerStats.armor)}`;
+                document.getElementById('money').textContent = `$${this.playerStats.money}`;
+                
+                const weapon = this.getCurrentWeapon();
+                if (weapon) {
+                    const reloadText = this.isReloading ? ' (换弹中...)' : '';
+                    document.getElementById('ammo').textContent = `弹药: ${weapon.ammo}/${weapon.reserve}${reloadText}`;
+                }
+            }
+            
+            checkGameEnd() {
+                const aliveEnemies = this.enemies.filter(enemy => enemy.health > 0).length;
+                
+                if (aliveEnemies === 0) {
+                    this.roundWin();
+                } else if (this.playerStats.health <= 0) {
+                    this.roundLose();
+                }
+            }
+            
+            roundWin() {
+                this.playerStats.money += 3000;
+                this.showGameStatus('回合胜利！+$3000', 3000);
+                setTimeout(() => this.nextRound(), 3000);
+            }
+            
+            roundLose() {
+                this.showGameStatus('回合失败！', 3000);
+                setTimeout(() => this.nextRound(), 3000);
+            }
+            
+            nextRound() {
+                // 重置玩家状态
+                this.playerStats.health = this.playerStats.maxHealth;
+                this.player.position.set(0, 1.6, 0);
+                this.player.rotation.set(0, 0, 0);
+                
+                // 重新创建敌人
+                this.createEnemies();
+                
+                // 显示商店
+                this.showShop();
+            }
+            
+            gameOver() {
+                this.gameState = 'menu';
+                document.getElementById('ui').classList.add('hidden');
+                document.getElementById('menu').classList.remove('hidden');
+                document.exitPointerLock();
+            }
+            
+            pauseGame() {
+                if (this.gameState === 'playing') {
+                    this.gameState = 'paused';
+                    document.getElementById('menu').classList.remove('hidden');
+                    document.exitPointerLock();
+                }
+            }
+            
+            resumeGame() {
+                if (this.gameState === 'paused') {
+                    this.gameState = 'playing';
+                    document.getElementById('menu').classList.add('hidden');
+                    document.body.requestPointerLock();
+                }
+            }
+            
+            showShop() {
+                document.getElementById('shop').classList.remove('hidden');
+                this.gameState = 'shop';
+                document.exitPointerLock();
+            }
+            
+            closeShop() {
+                document.getElementById('shop').classList.add('hidden');
+                this.gameState = 'playing';
+                document.body.requestPointerLock();
+            }
+            
+            showGameStatus(message, duration = 2000) {
+                const statusElement = document.getElementById('gameStatus');
+                statusElement.textContent = message;
+                statusElement.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    statusElement.classList.add('hidden');
+                }, duration);
+            }
+            
+            playSound(type) {
+                // 简单的音效播放
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    switch (type) {
+                        case 'gunshot':
+                            oscillator.frequency.value = 200;
+                            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                            break;
+                        case 'reload':
+                            oscillator.frequency.value = 400;
+                            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                            break;
+                        default:
+                            oscillator.frequency.value = 300;
+                            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                    }
+                    
+                    oscillator.type = 'square';
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                } catch (error) {
+                    console.log('音效播放失败:', error);
+                }
+            }
+            
+            render() {
+                requestAnimationFrame(() => this.render());
+                
+                const deltaTime = this.clock.getDelta();
+                this.update(deltaTime);
+                
+                if (this.renderer && this.scene && this.camera) {
+                    this.renderer.render(this.scene, this.camera);
+                }
+            }
+        }
+        
+        // 全局游戏实例
+        let game;
+        
+        // 游戏控制函数
+        function startGame(mode) {
+            try {
+                if (!game) {
+                    game = new CSGame();
+                }
+                
+                game.gameMode = mode;
+                game.gameState = 'playing';
+                
+                document.getElementById('menu').classList.add('hidden');
+                document.getElementById('ui').classList.remove('hidden');
+                
+                // 请求指针锁定
+                document.body.requestPointerLock().catch(err => {
+                    console.log('指针锁定请求失败:', err);
+                });
+                
+                // 开始渲染循环
+                if (!game.renderer) {
+                    setTimeout(() => game.render(), 100);
+                }
+            } catch (error) {
+                console.error('启动游戏失败:', error);
+                alert('启动游戏失败，请刷新页面重试');
+            }
+        }
+        
+        function showInstructions() {
+            alert(`操作说明：
+WASD - 移动
+鼠标 - 视角控制
+左键 - 射击
+R - 换弹
+1/2 - 切换主/副武器
+Shift - 静步
+Ctrl - 蹲下
+B - 打开商店
+ESC - 暂停/菜单
+滚轮 - 切换武器
+
+游戏目标：
+- 消灭所有敌人获得胜利
+- 击杀敌人获得$500奖励
+- 回合胜利获得$3000奖励
+- 使用金钱购买更好的武器装备
+
+提示：
+- 点击屏幕获得鼠标控制
+- 蹲下可以减少被击中的概率
+- 静步可以减少脚步声`);
+        }
+        
+        function buyItem(item, price) {
+            if (!game || game.playerStats.money < price) {
+                alert('金钱不足！');
+                return;
+            }
+            
+            game.playerStats.money -= price;
+            
+            switch (item) {
+                case 'm4a1':
+                    game.playerStats.weapons.primary = { 
+                        name: 'm4a1', 
+                        ammo: 30, 
+                        reserve: 90, 
+                        maxAmmo: 30 
+                    };
+                    break;
+                case 'awp':
+                    game.playerStats.weapons.primary = { 
+                        name: 'awp', 
+                        ammo: 10, 
+                        reserve: 30, 
+                        maxAmmo: 10 
+                    };
+                    break;
+                case 'deagle':
+                    game.playerStats.weapons.secondary = { 
+                        name: 'deagle', 
+                        ammo: 7, 
+                        reserve: 35, 
+                        maxAmmo: 7 
+                    };
+                    break;
+                case 'armor':
+                    game.playerStats.armor = 100;
+                    break;
+                case 'hegrenade':
+                    game.playerStats.grenades.he++;
+                    break;
+                case 'flashbang':
+                    game.playerStats.grenades.flash++;
+                    break;
+                case 'smoke':
+                    game.playerStats.grenades.smoke++;
+                    break;
+            }
+            
+            game.showGameStatus(`购买成功：${item}`, 1000);
+        }
+        
+        // 检查WebGL支持
+        if (!window.WebGLRenderingContext) {
+            alert('您的浏览器不支持WebGL，请升级浏览器！');
+        } else {
+            // 初始化游戏
+            document.addEventListener('DOMContentLoaded', () => {
+                game = new CSGame();
+            });
+        }
+    </script>
+</body>
+</html>
